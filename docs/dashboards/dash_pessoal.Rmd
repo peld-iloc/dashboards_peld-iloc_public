@@ -4,7 +4,7 @@ output:
   flexdashboard::flex_dashboard:
     social: menu
     navbar:
-      - { icon: "fa-home", href: "https://peld-iloc.github.io/dashboards_peld-iloc/", align: right }
+      - { icon: "fa-home", href: "https://peld-iloc.github.io/dashboards_peld-iloc_public/", align: right }
     storyboard: true
     
     
@@ -40,7 +40,7 @@ icon_lattes <- icons::academicons$lattes
 
 ```{r dataread, include = FALSE}
 
-Dt <- readxl::read_excel("~/Academico/POS-DOC_PELDILOC/dashboards_peld-iloc/data/Equipes_datas_geral_peld.xlsx")
+Dt <- readxl::read_excel("C:/Users/silve/OneDrive/Documentos/Academico/POS-DOC_PELDILOC/dashboards_peld-iloc/docs/data/Equipes_datas_geral_peld.xlsx")
 Dt$Count <- 1
 head(Dt)
 

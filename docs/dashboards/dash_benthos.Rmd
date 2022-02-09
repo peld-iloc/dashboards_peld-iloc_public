@@ -1,10 +1,10 @@
 ---
-title: "Reef Fishes - PELD ILOC"
+title: "Benthos - PELD ILOC"
 output: 
   flexdashboard::flex_dashboard:
     social: menu
     navbar:
-      - { icon: "fa-home", href: "https://peld-iloc.github.io/dashboards_peld-iloc/", align: right }
+      - { icon: "fa-home", href: "https://peld-iloc.github.io/dashboards_peld-iloc_public/", align: right }
  
     
 ---
