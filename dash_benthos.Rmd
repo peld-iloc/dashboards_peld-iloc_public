@@ -1,0 +1,430 @@
+---
+title: "Benthos - PELD ILOC"
+output: 
+  flexdashboard::flex_dashboard:
+    social: menu
+    navbar:
+      - { icon: "fa-home", href: "https://peld-iloc.github.io/dashboards_peld-iloc_public/", align: right }
+ 
+    
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(flexdashboard)
+library(readr)
+library(reshape2)
+library(leaflet)
+library(ggplot2)
+library(vegan)
+library(plotly)
+library(lubridate)
+library(dplyr)
+library(RColorBrewer)
+library(magrittr)
+library(fontawesome)
+
+```
+
+```{r dataread, include = FALSE}
+
+rm(list = ls())
+baseDir = "C:/Users/silve/OneDrive/Documentos/Academico/POS-DOC_PELDILOC/dashboards_peld-iloc/docs/data"
+
+#"C:/Users/silve/OneDrive/Documentos/Academico/POS-DOC_PELDILOC/dashboards_peld-iloc/docs/data"
+
+
+file_sites = "bentos_todas.csv"
+file_coords = "Peld_Site_Coordinates_2021_07_12.csv"
+
+dados <- read.csv(file.path(baseDir, file_sites), header = TRUE) %>% 
+  select(-X) %>% 
+  mutate(categoryid = recode("POR " = "POR", categoryid))
+
+
+DF.coords = read_delim(file.path(baseDir, file_coords),
+                       na="NA",
+                       delim = ",",
+                       skip_empty_rows = TRUE)
+
+# check unique ids
+dados %>% 
+  distinct(categoryid) %>% 
+  arrange(categoryid)
+
+
+```
+
+```{r taxa, include=FALSE}
+dados <- dados %>% 
+  mutate(categoryname = plyr::mapvalues(categoryname, 
+                                        from = c("jania", "amphiroa_sp_jania_sp", "outra_macroalga_calcaria_articulada", "amphiroa_sp_jania_sp2N", "outra_macroalga_calcaria_articulada_2N", "outra_macroalga_calcaria_articulada_1N", "amphiroa_sp_jania_spN", "outra_macroalga_calcaria_articulada_3N", 
+                                                 "turf_calcareo", "encrusting_crustose_algae", "outra_macroalga_crostosa_3", "outra_macroalga_crostosa_4", "rhodophyta", "outra_macroalga_crostosa_2","outra_macroalga_crostosa_1", "calcarias_nao_articuladas_calcaria_crostosa", "outra_macroalga_crostosa_1R", "outra_macroalga_crostosa_1N", "outra_macroalga_crostosa_2N", "outra_macroalga_crostosa_3N", "outra_macroalga_crostosa_4N",
+                                                 "peyssonelia", "estrelas", 
+                                                 "cianobacteria", "cianobacterias_1R", "cianobacterias_3R", "cianobacterias_2R", "cianobacteria_1N", "cianobacteria_2N", "cianobacteria_3N", "cianobacteria_4N",
+                                                 "chlorophyta", "outra_macroalga_filamentosa_1R", "outra_macroalga_filamentosa_2R", "outra_macroalga_filamentosa_3R", "outra_macroalga_filamentosa_4R", "outra_macroalga_filamentosa_1N", "outra_macroalga_filamentosa_2N", "outra_macroalga_filamentosa_3N",
+                                                 "bryopsis_pennata", 
+                                                 "dictyota_sp1R", "dictyota_ciliolata", "dictyota_sp2R", "dictyota_menstrualis", "dictyota_sp3R", "dictyota_spp_1N", "dictyota_spp_4N", "dictyota_spp_2N", "dictyota_spp_7N", "dictyota_spp_6N", "dictyota_spp_3N", "canistrocarpus_cervicornis", "dictyota_spp_5N", "dictyota_pulchella",
+                                                 "outra_macroalga_foliaceaR", "outra_macroalga_foliacea_1N",
+                                                 "padina_gymnospora",
+                                                 "dictyopteris_justii", "dictyopteris_spp_1N", "dictyopteris_spp_3N", "dictyopteris_spp_2N", "dictyopteris_jolyana",
+                                                 "incrustrante_2t", "incrustante_1R", "incrustante_2R", "incrustante_3R", "incrustrante_2N", "incrustrante_3N", "outra_esponja_2N", "outra_esponja_4N", "outra_esponja_1N", "placospongia", "incrustrante_1N", "outra_esponja_3N", "tubular",
+                                                 "coral_1", 
+                                                 "milepora_incrustante", "milepora",
+                                                 "caulerpa_verticilata",
+                                                 "stoloniferous_algae",
+                                                 "zoanthus_sociatus",
+                                                 "palythoa_caribeorum",
+                                                 "siderastrea_stellata",
+                                                 "red_filamentous_turf", "corticated_turf", "turf_filamentoso", "outro_turf"),
+                                        to = c(rep("articulated_coralline_algae", 8),
+                                               rep("CCA", 13),
+                                               "peyssonnelia", "Asteroidea",
+                                               rep("cyanobacteria", 8),
+                                               rep("filamentous_algae", 8),
+                                               "bryopsis", 
+                                               rep("dictyota", 14),
+                                               rep("foliose_algae", 2), 
+                                               "padina",
+                                               rep("dictyopteris", 5),
+                                               rep("porifera", 13), 
+                                               "scleractinia",
+                                               rep("millepora", 2),
+                                               "caulerpa_verticillata",
+                                               "caulerpa_racemosa_ASPSP",
+                                               "zoanthid",
+                                               "palythoa",
+                                               "siderastrea",
+                                               rep("turf", 4))),
+         categoryid = ifelse(categoryid == "SAR", "COR", categoryid)) 
+
+#####
+dados1 <- dados %>% 
+  mutate(unique_id = paste0(island, sites, year, depth, transect, quadrate, image)) %>% 
+  mutate(unique_trans_id = paste0(island, sites, year, depth, transect)) %>% 
+  select(island, sites, depth_mean, year, unique_trans_id, unique_id, categoryname, categoryid, coverpercategory) %>% 
+  mutate(unique_id = recode(unique_id, "stpauls_rocksenseada2015deep832014_T8_3.jpg" = "stpauls_rocksenseada2014deep832014_T8_3.jpg",
+                            "stpauls_rocksenseada2016deep832014_T8_3.jpg" = "stpauls_rocksenseada2014deep832014_T8_3.jpg",
+                            "stpauls_rocksenseada2016deep882015_T8_8.JPG" = "stpauls_rocksenseada2015deep882015_T8_8.JPG")) %>% 
+  group_by(island, sites, depth_mean, year, unique_trans_id, unique_id, categoryname, categoryid) %>% 
+  dplyr::summarise(coverpercategory = sum(coverpercategory)) %>% 
+  filter(unique_id != "trindadePonta Norte2013Fundo3Quadrat6trindade_Ponta Norte_2013_10_Quadrat6") %>% 
+  mutate(categoryname = recode(categoryname, "CCA" = "Lithophylloideae",
+                               "articulated_coralline_algae" = "Amphiroideae",
+                               "desconhecido" = "unknown",
+                               "areia_cascalho" = "sand_gravel",
+                               "bivalve_1" = "bivalvia",
+                               "zoanthid" = "Zoantharia",
+                               "outra_macroalga_corticadaR" = "corticated",
+                               "outra_macroalga_coriaceaR" = "leathery",
+                               "foliose_algae" = "foliose",
+                               "filamentous_algae" = "filamentous",
+                               "green_filamentous_algae" = "filamentous",
+                               "caulerpa_racemosa_ASPSP" = "caulerpa_racemosa"))
+
+```
+
+
+```{r data coords, include=FALSE}
+
+# Joining the tables using as reference the site (DF.sites) and site_coords (DF.coords)
+DF.benthos <- dados1 %>%
+  mutate(sites = str_to_lower(sites, locale = "pt")) %>%
+  mutate(sites = recode(sites, "farrilhoes" = "farilhoes", "ponta norte" = "ponta_norte")) %>%
+  left_join(DF.coords, by = c("sites" = "site_coord"), copy = TRUE) %>% 
+  mutate(island = paste(toupper(substr(island, 1, 1)), substr(island, 2, nchar(island)), sep = ""))
+
+
+# Reorganizing DF.sites with the corrected coordinates and site names
+DF.benthos1 <- DF.benthos %>% 
+  data.frame() %>% 
+  dplyr::select(-sites, -checking_status, -Obs) %>% 
+  relocate(New_name_coord, .after = island) %>% 
+  dplyr::rename(site = New_name_coord,
+                lon_DD = lon_DD_coord,
+                lat_DD = lat_DD_coord) %>% 
+  mutate(categoryname = recode(categoryname, "porites_asteroides" = "porites_astreoides",
+                               "xetospongia_muta" = "xestospongia_muta",
+                               "hypnea_musciformes" = "hypnea_musciformis",
+                               "diadema_antillarium" = "diadema_antillarum"))
+
+```
+
+
+
+
+
+
+General Information 
+======================================================================
+
+Column {data-width=350}
+----------------------------------------------------------------------
+
+### Zoom in to Explore PELD-ILOC Sites
+
+```{r map}
+
+
+## get lat lon
+siteCoords = DF.benthos1 %>% dplyr::group_by(site,island)%>% 
+  dplyr::summarise(lng = mean(lon_DD, na.rm=T), 
+            lat = mean(lat_DD, na.rm=T))
+
+## get total abund by site
+site_rich = DF.benthos1 %>%  
+  filter(categoryid != "NA" & coverpercategory!= 0)%>% 
+  dplyr::group_by(site) %>% 
+  dplyr::summarise(richness = n_distinct(categoryid),
+                   n_quadrats = n_distinct(unique_id)
+                   )
+
+
+## add abund and to coords
+siteCoords = full_join(siteCoords, site_rich)
+
+
+## make leaflet map
+leaflet(siteCoords) %>% 
+  setView(lng = -35, lat = -5, zoom = 06) %>% 
+  addTiles() %>% 
+  addCircleMarkers(label = ~paste0(str_to_upper(island),", ", site," / N. categories: ", richness, "/ N. quadrats: ",  n_quadrats), 
+                   radius = ~100 * (richness/80),
+                   fillOpacity = 0.9,
+                   stroke = T,
+                   clusterOptions = markerClusterOptions()) %>% 
+  addMiniMap(toggleDisplay = T)
+
+```
+
+
+
+
+Row {data-width=350 data-padding=10}
+----------------------------------------------------------------------
+
+### Indicators
+
+```{r value boxes, fig.align="center", echo = FALSE, fig.width=10, fig.height=7}
+
+library(fontawesome)
+library(emojifont)
+
+  n_transects = n_distinct(DF.benthos1$unique_trans_id)
+  n_sites = n_distinct(DF.benthos1$site)
+  n_cat = n_distinct(DF.benthos1$categoryname) 
+  
+  
+
+  
+  
+
+df <- data.frame(
+    x = seq(2, 15, 6.5),
+    y = rep(6.5, 3),
+    h = rep(4.25, 3),
+    w = rep(6.25, 3),
+    value = as.vector(c(n_transects, n_sites, n_cat)),
+    info=c("Transects", "Sites", "Categories"),
+    shape = c(fontawesome("fa-clipboard"),
+              fontawesome("fa-map-marker"),
+              fontawesome("fa-barcode")),
+    
+    font_family = c(rep("fontawesome-webfont", 3)),
+    color = factor(1:3)
+              )
+
+
+p2 <- ggplot(df, aes(x, y, height = h, width = w, label = info)) +
+    geom_tile(aes(fill = color)) +
+    geom_text(color = "white", fontface = "bold", size = 25,
+              aes(label = value, x = x - 2.9, y = y + 1), hjust = 0) +
+    geom_text(color = "white", fontface = "bold", size = 15,
+              aes(label = info, x = x - 2.9, y = y - 1), hjust = 0) +
+    coord_fixed() +
+    scale_fill_brewer(type = "qual",palette = "Dark2") +
+    geom_text(size = 50, aes(label = shape, family = font_family,
+                             x = x + 1.5, y = y + 0.1), alpha = 0.25) +
+    theme(plot.margin = margin(-1,-1,-1,-1, "cm"),
+          panel.background = element_rect(fill =  "white"),
+          line = element_blank(),
+          text = element_blank(),
+          title = element_blank()
+          ) +
+    #theme(plot.margin = margin(0,0,0,0, "cm")) +
+    guides(fill = "none") 
+
+p2
+
+
+```
+
+### Categories distribution
+
+```{r donut }
+
+
+## summarizes the results
+catranks = as.data.frame(table(DF.benthos1$categoryid))
+
+## make a donut
+p = catranks %>% 
+  top_n(10) %>% 
+  plot_ly(labels = ~Var1, values=~Freq, sizes = I(2)) %>% 
+  add_pie(hole=0.6)
+  # %>% 
+  #layout(title = ~paste0("Total Taxa Number: ", length(sp_Names))) 
+
+plotly::config(p,displayModeBar = F) 
+
+
+
+```
+
+
+
+
+
+
+Taxon List
+======================================================================
+
+
+Row 
+-----------------------------------------------------------------------
+
+
+
+### Category list - Number of transects each category where found.  
+
+```{r taxalist}
+
+taxaTable = DF.benthos1%>% 
+  dplyr::group_by(categoryid, categoryname) %>%
+  dplyr::summarise(
+            "Category name" = unique(categoryname),
+            "Category ID" = unique(categoryid),
+            "Noronha" = sum(island =="Noronha", na.rm=T), 
+            "Atol das Rocas" = sum(island=="Rocas", na.rm=T), 
+            "ASPS" = sum(island=="Stpauls_rocks", na.rm=T), 
+            "Trindade" = sum(island=="Trindade", na.rm=T)) %>%
+  select("categoryname", "categoryid", 	"Noronha",	"Atol das Rocas",	"ASPS",	"Trindade")
+
+
+taxaTable = taxaTable %>% 
+  mutate(categoryname = ifelse(str_detect(categoryname, "^[:upper:]+$"), categoryname,str_to_title(categoryname))) %>% 
+  mutate(categoryname = str_replace_all(categoryname, "_", " "))%>% 
+  rowwise() %>% 
+  mutate(Total = sum(across(Noronha:Trindade))) %>% 
+  arrange(desc(Total))
+
+knitr::kable(taxaTable)
+
+
+```
+
+
+
+
+
+Taxa abundance {.storyboard}
+=======================================================
+
+### **Fernando de Noronha** - Relative  cover recorded by site. 
+```{r abun noronha}
+#### solution
+taxacover = DF.benthos1 %>% 
+dplyr::select(island, site, categoryid, coverpercategory) %>% 
+  dplyr::filter(island == "Noronha" & coverpercategory!= 0 & categoryid!="NA") %>% #ok
+  dplyr::group_by(site, categoryid)%>% 
+  dplyr::summarize(mean_mean = mean(coverpercategory),
+                   sum_cover = sum(coverpercategory)) %>% 
+  dplyr::mutate(sum_cover_site = sum(sum_cover)) %>% 
+  dplyr::mutate(cover_site = (sum_cover*100)/sum_cover_site) %>% 
+  dplyr::arrange(categoryid)
+
+
+pp = ggplot(taxacover, aes(categoryid, cover_site, fill= site))
+pp = pp + geom_bar(stat="identity") + coord_flip() + facet_grid(~site) + 
+  theme_bw(base_size = 9) + xlab("") + ylab("relative cover") # ok no NA'S
+
+ggplotly(pp) %>% plotly::config(displayModeBar = F) 
+
+
+
+```
+
+### **Atol das rocas** - Relative  cover recorded by site. 
+
+```{r abun rocas}
+unique(DF.benthos1$island)
+
+taxacover = DF.benthos1 %>% 
+dplyr::select(island, site, categoryid, coverpercategory) %>% 
+  dplyr::filter(island == "Rocas" & coverpercategory!= 0 & categoryid!="NA") %>% #ok
+  dplyr::group_by(site, categoryid)%>% 
+  dplyr::summarize(mean_mean = mean(coverpercategory),
+                   sum_cover = sum(coverpercategory)) %>% 
+  dplyr::mutate(sum_cover_site = sum(sum_cover)) %>% 
+  dplyr::mutate(cover_site = (sum_cover*100)/sum_cover_site) %>% 
+  dplyr::arrange(categoryid)
+
+
+pp = ggplot(taxacover, aes(categoryid, cover_site, fill= site))
+pp = pp + geom_bar(stat="identity") + coord_flip() + facet_grid(~site) + 
+  theme_bw(base_size = 9) + xlab("") + ylab("relative cover") # ok no NA'S
+
+ggplotly(pp) %>% plotly::config(displayModeBar = F) 
+
+```
+
+### **ASPSP** - Relative  cover recorded by site. 
+
+```{r abun ASPSP}
+
+unique(DF.benthos1$island)
+
+taxacover = DF.benthos1 %>% 
+dplyr::select(island, site, categoryid, coverpercategory) %>% 
+  dplyr::filter(island == "Stpauls_rocks" & coverpercategory!= 0 & categoryid!="NA") %>% #ok
+  dplyr::group_by(site, categoryid)%>% 
+  dplyr::summarize(mean_mean = mean(coverpercategory),
+                   sum_cover = sum(coverpercategory)) %>% 
+  dplyr::mutate(sum_cover_site = sum(sum_cover)) %>% 
+  dplyr::mutate(cover_site = (sum_cover*100)/sum_cover_site) %>% 
+  dplyr::arrange(categoryid)
+
+
+pp = ggplot(taxacover, aes(categoryid, cover_site, fill= site))
+pp = pp + geom_bar(stat="identity") + coord_flip() + facet_grid(~site) + 
+  theme_bw(base_size = 9) + xlab("") + ylab("relative cover") # ok no NA'S
+
+ggplotly(pp) %>% plotly::config(displayModeBar = F) 
+
+
+```
+### **Trindade** - Relative  cover recorded by site. 
+
+```{r abun trindade}
+
+unique(DF.benthos1$island)
+
+taxacover = DF.benthos1 %>% 
+dplyr::select(island, site, categoryid, coverpercategory) %>% 
+  dplyr::filter(island == "Trindade" & coverpercategory!= 0 & categoryid!="NA") %>% #ok
+  dplyr::group_by(site, categoryid)%>% 
+  dplyr::summarize(mean_mean = mean(coverpercategory),
+                   sum_cover = sum(coverpercategory)) %>% 
+  dplyr::mutate(sum_cover_site = sum(sum_cover)) %>% 
+  dplyr::mutate(cover_site = (sum_cover*100)/sum_cover_site) %>% 
+  dplyr::arrange(categoryid)
+
+
+pp = ggplot(taxacover, aes(categoryid, cover_site, fill= site))
+pp = pp + geom_bar(stat="identity") + coord_flip() + facet_grid(~site) + 
+  theme_bw(base_size = 9) + xlab("") + ylab("relative cover") # ok no NA'S
+
+ggplotly(pp) %>% plotly::config(displayModeBar = F) 
+
+
+```
